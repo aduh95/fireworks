@@ -23,7 +23,15 @@ function* trackObjectPosition(properties) {
   return { position, velocity, acceleration };
 }
 
+function displayForALimitedTime(ctx, x, y, width, clearRect, reminiscence) {
+  ctx.beginPath();
+  ctx.rect(x, y, width, 1);
+  ctx.fill();
+  setTimeout(clearRect, reminiscence, x, y, width, 1);
+}
+
 async function drawTrajectory(ctx, ballisticObject, width) {
+  const clearRect = CanvasRenderingContext2D.prototype.clearRect.bind(ctx);
   return new Promise((resolve) => {
     const getPosition = trackObjectPosition(ballisticObject);
 
@@ -32,15 +40,14 @@ async function drawTrajectory(ctx, ballisticObject, width) {
       for (let i = previousTimestamp || timestamp; i < timestamp; i++) {
         const { value: position, done } = getPosition.next();
         if (done) return resolve(position);
-        ctx.beginPath();
-        ctx.rect(
+        displayForALimitedTime(
+          ctx,
           position.x / 10 ** 9,
           position.y / 10 ** 9,
           width,
-          1
-          //   Math.PI * 2
+          clearRect,
+          ballisticObject.reminiscence
         );
-        ctx.fill();
       }
       requestAnimationFrame(nextFrame);
       previousTimestamp = timestamp;
@@ -61,6 +68,7 @@ function spiderEffect({ position: initialPosition, velocity }) {
     fuelAutonomy: 0,
     motorThrust: 0,
     frictionCoefficient: Math.random() * 0.000_02 + 0.000_005,
+    reminiscence: 100,
   };
 }
 
@@ -75,14 +83,14 @@ function launchFirework(ctx) {
       ((Math.random() * 10 + 15) % 20) - 10, // [-10, -5]U[5, 10]
       GRAVITY.y * -1.2
     ),
-    trailLength: 10,
+    reminiscence: 200,
     lifeExpectancy: 1000,
     fuelAutonomy: 600,
     motorThrust: GRAVITY.y * -3,
     frictionCoefficient: Math.random() * 0.000_015 + 0.000_005,
   };
 
-  drawTrajectory(ctx, skyRocket, 5)
+  return drawTrajectory(ctx, skyRocket, 5)
     .then((previousState) =>
       Promise.all(
         Array.from({ length: Math.random() * 10 }, () =>
@@ -93,6 +101,8 @@ function launchFirework(ctx) {
     .catch(console.error);
 }
 
+const delay = (delay) => new Promise((done) => setTimeout(done, delay));
+
 requestIdleCallback(() => {
   const canvas = document.createElement("canvas");
   canvas.height = 500;
@@ -100,10 +110,27 @@ requestIdleCallback(() => {
   flex.append(canvas);
   const ctx = canvas.getContext("2d");
   ctx.setTransform(1, 0, 0, -1, canvas.width / 2, canvas.height);
-  setTimeout(() => launchFirework(ctx), 200);
-  setTimeout(() => launchFirework(ctx), 1400);
-  setTimeout(() => launchFirework(ctx), 600);
-  setTimeout(() => launchFirework(ctx), 1800);
+  Promise.all(
+    Array.from({ length: 5 }, (_, i) =>
+      delay(Math.random() * 50 + i * 200).then(() => launchFirework(ctx))
+    )
+  ).then((...args) => {
+    canvas.style.transformOrigin = "top";
+    canvas.addEventListener("animationend", () => canvas.remove());
+    canvas.animate(
+      [
+        {
+          opacity: 1,
+          transform: "none",
+        },
+        { opacity: 0, transform: "translateY(50px) scaleY(1.5)" },
+      ],
+      {
+        delay: 1000,
+        duration: 3800,
+      }
+    );
+  });
 
   document.body.append(flex);
 });
