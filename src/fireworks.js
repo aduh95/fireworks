@@ -27,7 +27,7 @@ function displayForALimitedTime(ctx, x, y, width, clearRect, reminiscence) {
   ctx.beginPath();
   ctx.rect(x, y, width, 1);
   ctx.fill();
-  setTimeout(clearRect, reminiscence, x, y, width, 1);
+  //   setTimeout(clearRect, reminiscence, x, y, width, 1);
 }
 
 async function drawTrajectory(ctx, ballisticObject, width) {
@@ -104,9 +104,11 @@ function launchFirework(ctx) {
 const delay = (delay) => new Promise((done) => setTimeout(done, delay));
 
 requestIdleCallback(() => {
+  const WIDTH = 999;
+  const HEIGHT = 500;
   const canvas = document.createElement("canvas");
-  canvas.height = 500;
-  canvas.width = 999;
+  canvas.height = HEIGHT;
+  canvas.width = WIDTH;
   flex.append(canvas);
   const ctx = canvas.getContext("2d");
   ctx.setTransform(1, 0, 0, -1, canvas.width / 2, canvas.height);
@@ -114,23 +116,37 @@ requestIdleCallback(() => {
     Array.from({ length: 5 }, (_, i) =>
       delay(Math.random() * 50 + i * 200).then(() => launchFirework(ctx))
     )
-  ).then((...args) => {
-    canvas.style.transformOrigin = "top";
-    canvas.addEventListener("animationend", () => canvas.remove());
-    canvas.animate(
-      [
-        {
-          opacity: 1,
-          transform: "none",
-        },
-        { opacity: 0, transform: "translateY(50px) scaleY(1.5)" },
-      ],
-      {
-        delay: 1000,
-        duration: 3800,
-      }
-    );
+  )
+    // .then(() => delay(1999))
+    .then(() => {
+      canvas.addEventListener("animationend", () => canvas.remove());
+      canvas.style.transformOrigin = "top";
+      canvas.animate(
+        [{ opacity: 1 }, { opacity: 0, transform: "scaleY(1.5)" }],
+        { duration: 4000, easing: "ease-in" }
+      );
+    });
+
+  let previousTimestamp;
+  requestAnimationFrame((timestamp) => {
+    previousTimestamp = timestamp;
   });
+  function nextFrame(timestamp) {
+    const frame = ctx.getImageData(0, 0, WIDTH, HEIGHT);
+    for (
+      let i = 3;
+      i < frame.data.length;
+      i += 4 * frame.data.BYTES_PER_ELEMENT
+    ) {
+      frame.data[i] -=
+        (frame.data[i] >> 3) * ((timestamp - previousTimestamp) >> 4);
+    }
+    ctx.putImageData(frame, 0, 0);
+
+    requestAnimationFrame(nextFrame);
+    previousTimestamp = timestamp;
+  }
+  nextFrame();
 
   document.body.append(flex);
 });
