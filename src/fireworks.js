@@ -1,5 +1,24 @@
 import Vector from "./Vector2D.js";
 
+const colors = [
+  "#b3312c",
+  "#eb8844",
+  "#decf2a",
+  "#41cd34",
+  "#3b511a",
+  "#6689d3",
+  "#287697",
+  "#253192",
+  "#7b2fbe",
+  "#c354cd",
+  "#d88198",
+  "#f0f0f0",
+  "#ababab",
+  "#434343",
+  "#1e1b1b",
+  "#51301a",
+];
+
 const GRAVITY = new Vector(0, -981);
 function* trackObjectPosition(properties) {
   const acceleration = properties.initialAcceleration.clone();
@@ -23,15 +42,7 @@ function* trackObjectPosition(properties) {
   return { position, velocity, acceleration };
 }
 
-function displayForALimitedTime(ctx, x, y, width, clearRect, reminiscence) {
-  ctx.beginPath();
-  ctx.rect(x, y, width, 1);
-  ctx.fill();
-  //   setTimeout(clearRect, reminiscence, x, y, width, 1);
-}
-
-async function drawTrajectory(ctx, ballisticObject, width) {
-  const clearRect = CanvasRenderingContext2D.prototype.clearRect.bind(ctx);
+async function drawTrajectory(ctx, ballisticObject) {
   return new Promise((resolve) => {
     const getPosition = trackObjectPosition(ballisticObject);
 
@@ -40,23 +51,24 @@ async function drawTrajectory(ctx, ballisticObject, width) {
       for (let i = previousTimestamp || timestamp; i < timestamp; i++) {
         const { value: position, done } = getPosition.next();
         if (done) return resolve(position);
-        displayForALimitedTime(
-          ctx,
+        ctx.fillStyle = ballisticObject.color;
+        ctx.beginPath();
+        ctx.rect(
           position.x / 10 ** 9,
           position.y / 10 ** 9,
-          width,
-          clearRect,
-          ballisticObject.reminiscence
+          ballisticObject.thickness,
+          1
         );
+        ctx.fill();
       }
       requestAnimationFrame(nextFrame);
       previousTimestamp = timestamp;
     }
-    nextFrame();
+    requestAnimationFrame(nextFrame);
   });
 }
 
-function spiderEffect({ position: initialPosition, velocity }) {
+function spiderEffect({ position: initialPosition, velocity }, color) {
   return {
     initialPosition,
     initialVelocity: new Vector(0, velocity.y),
@@ -67,13 +79,11 @@ function spiderEffect({ position: initialPosition, velocity }) {
     lifeExpectancy: 800,
     fuelAutonomy: 0,
     motorThrust: 0,
-    frictionCoefficient: Math.random() * 0.000_02 + 0.000_005,
-    reminiscence: 100,
+    frictionCoefficient: Math.random() * 0.000_015 + 0.000_005,
+    thickness: 3,
+    color,
   };
 }
-
-const flex = document.createElement("div");
-flex.style.display = "flex";
 
 function launchFirework(ctx) {
   const skyRocket = {
@@ -83,18 +93,19 @@ function launchFirework(ctx) {
       ((Math.random() * 10 + 15) % 20) - 10, // [-10, -5]U[5, 10]
       GRAVITY.y * -1.2
     ),
-    reminiscence: 200,
-    lifeExpectancy: 1000,
+    lifeExpectancy: 900 + Math.random() * 300,
     fuelAutonomy: 600,
     motorThrust: GRAVITY.y * -3,
     frictionCoefficient: Math.random() * 0.000_015 + 0.000_005,
+    thickness: 7,
+    color: colors[(Math.random() * colors.length) | 0],
   };
 
-  return drawTrajectory(ctx, skyRocket, 5)
+  return drawTrajectory(ctx, skyRocket)
     .then((previousState) =>
       Promise.all(
         Array.from({ length: Math.random() * 10 }, () =>
-          drawTrajectory(ctx, spiderEffect(previousState), 2)
+          drawTrajectory(ctx, spiderEffect(previousState, skyRocket.color))
         )
       )
     )
@@ -103,50 +114,43 @@ function launchFirework(ctx) {
 
 const delay = (delay) => new Promise((done) => setTimeout(done, delay));
 
-requestIdleCallback(() => {
-  const WIDTH = 999;
-  const HEIGHT = 500;
+export default function fire(numberOfRockets, delayBetweenRockets) {
+  const WIDTH = 800;
+  const HEIGHT = 600;
   const canvas = document.createElement("canvas");
   canvas.height = HEIGHT;
   canvas.width = WIDTH;
-  flex.append(canvas);
   const ctx = canvas.getContext("2d");
-  ctx.setTransform(1, 0, 0, -1, canvas.width / 2, canvas.height);
+  ctx.setTransform(1, 0, 0, -1, WIDTH / 2, HEIGHT);
   Promise.all(
-    Array.from({ length: 5 }, (_, i) =>
-      delay(Math.random() * 50 + i * 200).then(() => launchFirework(ctx))
+    Array.from({ length: numberOfRockets }, (_, i) =>
+      delay(Math.random() * 50 + i * delayBetweenRockets).then(() =>
+        launchFirework(ctx)
+      )
     )
-  )
-    // .then(() => delay(1999))
-    .then(() => {
-      canvas.addEventListener("animationend", () => canvas.remove());
-      canvas.style.transformOrigin = "top";
-      canvas.animate(
-        [{ opacity: 1 }, { opacity: 0, transform: "scaleY(1.5)" }],
-        { duration: 4000, easing: "ease-in" }
-      );
+  ).then(() => {
+    canvas.addEventListener("transitionend", () => {
+      nextFrame = () => canvas.remove();
     });
+    canvas.style.transformOrigin = "top";
+    canvas.style.transition = "all 3s ease-in";
+    canvas.style.opacity = 0;
+    canvas.style.transform = "scaleY(1.5)";
+  });
 
   let previousTimestamp;
-  requestAnimationFrame((timestamp) => {
-    previousTimestamp = timestamp;
-  });
   function nextFrame(timestamp) {
     const frame = ctx.getImageData(0, 0, WIDTH, HEIGHT);
-    for (
-      let i = 3;
-      i < frame.data.length;
-      i += 4 * frame.data.BYTES_PER_ELEMENT
-    ) {
-      frame.data[i] -=
-        (frame.data[i] >> 3) * ((timestamp - previousTimestamp) >> 4);
+    const speed = (timestamp - previousTimestamp) >> 4;
+    for (let i = 3; i < frame.data.length; i += 4) {
+      frame.data[i] -= (frame.data[i] >> 3) * speed;
     }
     ctx.putImageData(frame, 0, 0);
 
     requestAnimationFrame(nextFrame);
     previousTimestamp = timestamp;
   }
-  nextFrame();
+  requestAnimationFrame(nextFrame);
 
-  document.body.append(flex);
-});
+  return canvas;
+}
