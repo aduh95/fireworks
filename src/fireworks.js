@@ -85,9 +85,13 @@ function spiderEffect({ position: initialPosition, velocity }, color) {
   };
 }
 
-function launchFirework(ctx) {
+export function launchRocket(
+  ctx,
+  initialPosition = Vector.NUL,
+  color = undefined
+) {
   const skyRocket = {
-    initialPosition: Vector.NUL,
+    initialPosition,
     initialVelocity: Vector.NUL,
     initialAcceleration: new Vector(
       ((Math.random() + 1.5) % 2) - 1, // [-1, -.5]U[.5, 1]
@@ -98,7 +102,7 @@ function launchFirework(ctx) {
     motorThrust: GRAVITY.y * -5,
     frictionCoefficient: Math.random() * 0.000_015 + 0.000_005,
     thickness: 7,
-    color: colors[(Math.random() * colors.length) | 0],
+    color: color || colors[(Math.random() * colors.length) | 0],
   };
 
   return drawTrajectory(ctx, skyRocket)
@@ -112,36 +116,16 @@ function launchFirework(ctx) {
     .catch(console.error);
 }
 
-const delay = (delay) => new Promise((done) => setTimeout(done, delay));
+export function fadeOutChemTrails(canvas, promiseToWaitFor, ctx = null) {
+  const { width, height } = canvas;
 
-export default function fire(numberOfRockets, delayBetweenRockets) {
-  const WIDTH = 800;
-  const HEIGHT = 800;
-  const canvas = document.createElement("canvas");
-  canvas.height = HEIGHT;
-  canvas.width = WIDTH;
-  const ctx = canvas.getContext("2d");
-  ctx.setTransform(1, 0, 0, -1, WIDTH / 2, HEIGHT);
-  Promise.all(
-    Array.from({ length: numberOfRockets }, (_, i) =>
-      delay(Math.random() * 50 + i * delayBetweenRockets).then(() =>
-        launchFirework(ctx)
-      )
-    )
-  ).then(() => {
-    canvas.addEventListener("transitionend", () => {
-      nextFrame = () => canvas.remove();
-    });
-    canvas.style.transformOrigin = "top";
-    canvas.style.transition = "all 3s ease-in";
-    canvas.style.transitionProperty = "opacity,transform";
-    canvas.style.opacity = 0;
-    canvas.style.transform = "scaleY(1.5)";
-  });
+  if (ctx == null) {
+    ctx = canvas.getContext("2d");
+  }
 
-  let previousTimestamp;
+  let previousTimestamp, animationFrameID;
   function nextFrame(timestamp) {
-    const frame = ctx.getImageData(0, 0, WIDTH, HEIGHT);
+    const frame = ctx.getImageData(0, 0, width, height);
     const speed = (timestamp - previousTimestamp) / 16;
     for (let i = 3; i < frame.data.length; i += 4) {
       const val = frame.data[i];
@@ -151,10 +135,48 @@ export default function fire(numberOfRockets, delayBetweenRockets) {
     }
     ctx.putImageData(frame, 0, 0);
 
-    requestAnimationFrame(nextFrame);
+    animationFrameID = requestAnimationFrame(nextFrame);
     previousTimestamp = timestamp;
   }
-  requestAnimationFrame(nextFrame);
+
+  promiseToWaitFor.then(() => {
+    canvas.addEventListener("transitionend", () => {
+      cancelAnimationFrame(animationFrameID);
+      canvas.remove();
+    });
+    canvas.style.transformOrigin = "top";
+    canvas.style.transition = "all 3s ease-in";
+    canvas.style.transitionProperty = "opacity,transform";
+    canvas.style.opacity = 0;
+    canvas.style.transform = "scaleY(1.5)";
+  });
+
+  return nextFrame;
+}
+
+const delay = (delay) => new Promise((done) => setTimeout(done, delay));
+
+export default function autoShow(numberOfRockets, delayBetweenRockets) {
+  const WIDTH = 800;
+  const HEIGHT = 800;
+  const canvas = document.createElement("canvas");
+  canvas.height = HEIGHT;
+  canvas.width = WIDTH;
+  const ctx = canvas.getContext("2d");
+  ctx.setTransform(1, 0, 0, -1, WIDTH / 2, HEIGHT);
+  requestAnimationFrame(
+    fadeOutChemTrails(
+      canvas,
+      Promise.all(
+        Array.from({ length: numberOfRockets }, (_, i) =>
+          delay(Math.random() * 50 + i * delayBetweenRockets).then(() =>
+            launchRocket(ctx)
+          )
+        )
+      ),
+      ctx
+    )
+  );
 
   return canvas;
 }
