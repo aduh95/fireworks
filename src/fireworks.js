@@ -19,7 +19,7 @@ const colors = [
   "#51301a",
 ];
 
-const GRAVITY = new Vector(0, -981);
+const GRAVITY = new Vector(0, -0.981);
 function* trackObjectPosition(properties) {
   const acceleration = properties.initialAcceleration.clone();
   const velocity = properties.initialVelocity.clone();
@@ -54,8 +54,8 @@ async function drawTrajectory(ctx, ballisticObject) {
         ctx.fillStyle = ballisticObject.color;
         ctx.beginPath();
         ctx.rect(
-          position.x / 10 ** 9,
-          position.y / 10 ** 9,
+          position.x >> 20,
+          position.y >> 20,
           ballisticObject.thickness,
           1
         );
@@ -73,7 +73,7 @@ function spiderEffect({ position: initialPosition, velocity }, color) {
     initialPosition,
     initialVelocity: new Vector(0, velocity.y),
     initialAcceleration: new Vector(
-      2 * (Math.random() - 0.5) * 10 ** 6,
+      (Math.random() - 0.5) * 2000,
       -GRAVITY.y * 1000
     ),
     lifeExpectancy: 800,
@@ -90,12 +90,12 @@ function launchFirework(ctx) {
     initialPosition: Vector.NUL,
     initialVelocity: Vector.NUL,
     initialAcceleration: new Vector(
-      ((Math.random() * 10 + 15) % 20) - 10, // [-10, -5]U[5, 10]
-      GRAVITY.y * -1.2
+      ((Math.random() + 1.5) % 2) - 1, // [-1, -.5]U[.5, 1]
+      GRAVITY.y * -7
     ),
     lifeExpectancy: 900 + Math.random() * 300,
     fuelAutonomy: 600,
-    motorThrust: GRAVITY.y * -3,
+    motorThrust: GRAVITY.y * -5,
     frictionCoefficient: Math.random() * 0.000_015 + 0.000_005,
     thickness: 7,
     color: colors[(Math.random() * colors.length) | 0],
@@ -116,7 +116,7 @@ const delay = (delay) => new Promise((done) => setTimeout(done, delay));
 
 export default function fire(numberOfRockets, delayBetweenRockets) {
   const WIDTH = 800;
-  const HEIGHT = 600;
+  const HEIGHT = 800;
   const canvas = document.createElement("canvas");
   canvas.height = HEIGHT;
   canvas.width = WIDTH;
@@ -134,6 +134,7 @@ export default function fire(numberOfRockets, delayBetweenRockets) {
     });
     canvas.style.transformOrigin = "top";
     canvas.style.transition = "all 3s ease-in";
+    canvas.style.transitionProperty = "opacity,transform";
     canvas.style.opacity = 0;
     canvas.style.transform = "scaleY(1.5)";
   });
@@ -141,9 +142,12 @@ export default function fire(numberOfRockets, delayBetweenRockets) {
   let previousTimestamp;
   function nextFrame(timestamp) {
     const frame = ctx.getImageData(0, 0, WIDTH, HEIGHT);
-    const speed = (timestamp - previousTimestamp) >> 4;
+    const speed = (timestamp - previousTimestamp) / 16;
     for (let i = 3; i < frame.data.length; i += 4) {
-      frame.data[i] -= (frame.data[i] >> 3) * speed;
+      const val = frame.data[i];
+      if (val > 16) {
+        frame.data[i] = val - (val >> 3) * speed;
+      }
     }
     ctx.putImageData(frame, 0, 0);
 
