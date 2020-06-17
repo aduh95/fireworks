@@ -8,8 +8,9 @@ function launchRocketsAfterRandomDelay() {
     Math.random() * maxNumberOfRocketPerCanvas,
     delayBetweenRockets
   );
+  const { clientHeight } = document.documentElement;
   canvas.style.top =
-    (Math.random() * document.documentElement.clientHeight) / 3 + "px";
+    clientHeight - canvas.height - (Math.random() * clientHeight) / 3 + "px";
   canvas.style.left =
     Math.random() * (document.documentElement.clientWidth - canvas.width) +
     "px";
