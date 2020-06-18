@@ -156,14 +156,18 @@ export function fadeOutChemTrails(canvas, promiseToWaitFor, ctx = null) {
 
 const delay = (delay) => new Promise((done) => setTimeout(done, delay));
 
-export default function autoShow(numberOfRockets, delayBetweenRockets) {
-  const WIDTH = 800;
-  const HEIGHT = 800;
+export default function autoShow(
+  numberOfRockets,
+  delayBetweenRockets,
+  scale = 1
+) {
+  const WIDTH = 1000 * scale;
+  const HEIGHT = 1000 * scale;
   const canvas = document.createElement("canvas");
   canvas.height = HEIGHT;
   canvas.width = WIDTH;
   const ctx = canvas.getContext("2d");
-  ctx.setTransform(1, 0, 0, -1, WIDTH / 2, HEIGHT);
+  ctx.setTransform(scale, 0, 0, -scale, WIDTH / 2, HEIGHT);
   requestAnimationFrame(
     fadeOutChemTrails(
       canvas,

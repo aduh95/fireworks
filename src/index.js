@@ -6,7 +6,8 @@ const delayBetweenRockets = 250;
 function launchRocketsAfterRandomDelay() {
   const canvas = fire(
     Math.random() * maxNumberOfRocketPerCanvas,
-    delayBetweenRockets
+    delayBetweenRockets,
+    Math.random()
   );
   const { clientHeight } = document.documentElement;
   canvas.style.top =
