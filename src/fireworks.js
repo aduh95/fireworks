@@ -116,6 +116,16 @@ export function launchRocket(
     .catch(console.error);
 }
 
+/**
+ * @param {HTMLCanvasElement} canvas
+ * @param {Promise<>} promiseToWaitFor Promise that resolves when it's time to
+ *                                     fade out the canvas (usually a
+ *                                     `Promise.all` to wait for all
+ *                                     `launchRocket` animations to complete.
+ * @param {CanvasRenderingContext2D} ctx
+ * @returns {FrameRequestCallback} Frame by frame callback that erases previous
+ *                                 traces.
+ */
 export function fadeOutChemTrails(canvas, promiseToWaitFor, ctx = null) {
   const { width, height } = canvas;
 
@@ -156,9 +166,15 @@ export function fadeOutChemTrails(canvas, promiseToWaitFor, ctx = null) {
 
 const delay = (delay) => new Promise((done) => setTimeout(done, delay));
 
+/**
+ * @param {number} numberOfRockets
+ * @param {number} delayBetweenRockets in milliseconds
+ * @param {number} scale Canvas default size is 1000x1000 px²
+ * @returns {HTMLCanvasElement}
+ */
 export default function autoShow(
-  numberOfRockets,
-  delayBetweenRockets,
+  numberOfRockets = 5,
+  delayBetweenRockets = 200,
   scale = 1
 ) {
   const WIDTH = 1000 * scale;
